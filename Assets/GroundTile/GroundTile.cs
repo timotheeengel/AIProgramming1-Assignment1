@@ -27,7 +27,7 @@ public class GroundTile : MonoBehaviour
         COUNT
     }
     
-    public TILETYPE tile_type_
+    public TILETYPE type_
     {
         get { return current_state_; }
     }
@@ -51,9 +51,6 @@ public class GroundTile : MonoBehaviour
     private bool has_sheep_ = false;
     private bool has_wolf_ = false;
 
-    [CanBeNull] private Sheep sheep_;
-    [CanBeNull] private Wolf wolf_;
-    
     private int health_ = 0;
     private int minimum_starting_health_ = 10;
     private int max_health_ = 100;
@@ -97,7 +94,6 @@ public class GroundTile : MonoBehaviour
         StartCoroutine(Sense());
         StartCoroutine(Decide());
         StartCoroutine(Act());
-
     }
 
     void SelfSeed()
@@ -147,8 +143,8 @@ public class GroundTile : MonoBehaviour
         {
             is_sensing_ = true;
 
-            has_sheep_ = Sheep.sheep_db_.TryGetValue(pos_, out sheep_);
-            has_wolf_ = Wolf.wolf_db_.TryGetValue(pos_, out wolf_);
+            has_sheep_ = Sheep.sheep_db_.ContainsKey(pos_);
+            has_wolf_ = Wolf.wolf_db_.ContainsKey(pos_);
 
             is_sensing_ = false;
 
@@ -226,8 +222,7 @@ public class GroundTile : MonoBehaviour
             {
                 case DECISION.IDLE:
                 {
-                    Debug.Log(
-                        "nothing to do but drink a cup of tea; metaphorically of course... I am just a piece of grass after all!");
+                    //Debug.Log("nothing to do but drink a cup of tea; metaphorically of course... I am just a piece of grass after all!");
                     break;
                 }
                 case DECISION.GROW:
@@ -310,6 +305,7 @@ public class GroundTile : MonoBehaviour
 
     public bool ChewGrass()
     {
+        //Debug.Log("Nooooo!!!! Damned vegetarians, I have feelings too :'(");
         if (health_ <= 0)
         {
             sprite_renderer_.sprite = dirt_sprite_;

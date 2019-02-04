@@ -16,7 +16,7 @@ public class GameInstantiator : MonoBehaviour
     private int grid_height_ = 10;
 
     private int amount_of_sheep_ = 1;
-    private int amount_of_wolves_ = 4;
+    private int amount_of_wolves_ = 0;
 
     private int ratio_of_grass_to_dirt_ = 20; // percent of the field covered in grass
 
@@ -74,10 +74,13 @@ public class GameInstantiator : MonoBehaviour
             Vector2 spawn_pos = new Vector2(Random.Range(0, grid_width_), Random.Range(0, grid_height_));
             if (GroundTile.TileDictionary.ContainsKey(spawn_pos) && !Sheep.sheep_db_.ContainsKey(spawn_pos))
             {
-                Instantiate(sheep_prefab_, new Vector3(spawn_pos.x, spawn_pos.y, 0), Quaternion.identity, herd_.transform);
+                GameObject tempRef = Instantiate(sheep_prefab_, new Vector3(spawn_pos.x, spawn_pos.y, 0), Quaternion.identity, herd_.transform);
+                tempRef.GetComponent<Sheep>().BirthSheep(spawn_pos);
                 spawned_sheep++;
             }
         }
+        
+        Sheep.SetSheepPrefab(sheep_prefab_);
 
         
         
