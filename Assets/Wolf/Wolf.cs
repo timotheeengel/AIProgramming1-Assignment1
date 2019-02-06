@@ -7,16 +7,19 @@ public class Wolf : MonoBehaviour
     public static Dictionary<Vector2, Wolf> wolf_db_ = new Dictionary<Vector2, Wolf>();
 
     private Vector2 pos_;
-    private SpriteRenderer sprite_renderer_;
+    
+    public delegate void OnWolfAddedToGame(Wolf wolf);
+    public static event OnWolfAddedToGame onWolfAddedToGame;
+
+    public delegate void OnWolfDeletedFromGame(Wolf wolf);
+    public static event OnWolfDeletedFromGame onWolfDeletedFromGame;
+    
+    
     
     private void Awake()
     {
-        sprite_renderer_ = GetComponent<SpriteRenderer>();
-        
         pos_ = new Vector2(transform.position.x, transform.position.y);
         wolf_db_.Add(pos_, this);
-        
-        
     }
 
     // Start is called before the first frame update

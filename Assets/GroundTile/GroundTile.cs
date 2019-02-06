@@ -7,9 +7,7 @@ using Random = UnityEngine.Random;
 
 public class GroundTile : MonoBehaviour
 {
-    public static Dictionary<Vector2, GroundTile> TileDictionary = new Dictionary<Vector2, GroundTile>();
-
-    public static Hashtable TileDb = new Hashtable();
+    public static Dictionary<Vector2, GroundTile> TileDictionary = new Dictionary<Vector2, GroundTile>();    
     
     public enum TILETYPE
     {
@@ -55,12 +53,15 @@ public class GroundTile : MonoBehaviour
     private int minimum_starting_health_ = 10;
     private int max_health_ = 100;
 
-    private float sense_interval_ = 0.5f;
-    private float decide_interval_ = 0.3f;
-    private float act_interval_ = 0.1f;
+    private double sense_interval_ = 0.5f;
+    private double decide_interval_ = 0.3f;
+    private double act_interval_ = 0.1f;
+
+    private double next_sense_ = 0;
+    private double next_decide_ = 0;
+    private double next_act_ = 0;
 
     // note: locks to avoid S-D-A running while data is being overwritten
-    private bool is_sensing_ = false;
     private bool is_deciding_ = false;
     
     private DECISION current_decision_ = DECISION.IDLE;
@@ -82,29 +83,18 @@ public class GroundTile : MonoBehaviour
         
         sprite_renderer_ = GetComponent<SpriteRenderer>();
         TileDictionary.Add(new Vector2(pos_.x, pos_.y), this);
-    }
-
-    // Start is called before the first frame update
-    void Start()
-    {        
+        
         SetSprite();
-//        TileDb.Add(new Vector2(pos.x, pos.y), this);
-//        Debug.Log(TileDb.Count);
-
-        StartCoroutine(Sense());
-        StartCoroutine(Decide());
-        StartCoroutine(Act());
     }
 
-    void SelfSeed()
+    public void Tick()
     {
-        float die_roll = Random.Range(0.0f, 1.0f);
-        Debug.Log(gameObject.name + " attempted selfseeding  " + die_roll + " vs " + chances_of_self_seeding_);
-        if (die_roll < chances_of_self_seeding_)
-        {
-            PlantSeed();
-        }
+        Sense();
+        Decide();
+        Act();
     }
+    
+
     
     public void PlantSeed()
     {
@@ -137,40 +127,19 @@ public class GroundTile : MonoBehaviour
         }
     }
     
-    IEnumerator Sense()
+    void Sense()
     {
-        while(true)
-        {
-            is_sensing_ = true;
-
-            has_sheep_ = Sheep.sheep_db_.ContainsKey(pos_);
-            has_wolf_ = Wolf.wolf_db_.ContainsKey(pos_);
-
-            is_sensing_ = false;
-
-            yield return new WaitForSeconds(sense_interval_);
-        }
+        if (Time.time < next_sense_) return;
+        
+        has_sheep_ = Sheep.sheep_db_.ContainsKey(pos_);
+        has_wolf_ = Wolf.wolf_db_.ContainsKey(pos_);
+        next_sense_ = Time.time + sense_interval_;
     }
 
-    IEnumerator Decide()
+    void Decide()
     {
-        while (true)
-        {
-            is_deciding_ = true;
+            if (Time.time < next_decide_ || current_state_ == TILETYPE.DIRT) return;
 
-            if (current_state_ == TILETYPE.DIRT)
-            {
-                is_deciding_ = false;
-                yield return new WaitUntil(() => is_tile_seeded_ == true);
-            }
-
-            if (is_sensing_)
-            {
-                is_deciding_ = false;
-                yield return new WaitUntil(() => is_sensing_ == false);
-            }
-
-            
             if (has_sheep_ || has_sheep_)
             {
                 current_decision_ = DECISION.IDLE;
@@ -190,65 +159,44 @@ public class GroundTile : MonoBehaviour
             {
                 is_mature_timer_ = 0;
                 current_decision_ = DECISION.GROW;
-            } 
-//        else
-//        {
-//            current_decision_ = (DECISION) Random.Range(0, Enum.GetValues(typeof(DECISION)).Length);
-//        }
+            }
 
-            is_deciding_ = false;
-            yield return new WaitForSeconds(decide_interval_);
-        }
+            next_decide_ = Time.time + decide_interval_;
     }
 
-    IEnumerator Act()
+    void Act()
     {
-        while(true)
+        if (Time.time < next_act_ || current_state_ == TILETYPE.DIRT) return;
+        
+        switch (current_decision_)
         {
-            if (current_state_ == TILETYPE.DIRT)
+            case DECISION.IDLE:
             {
-                // SelfSeed();
-                yield return new WaitUntil(() => current_state_ == TILETYPE.GRASS);
-                continue;
+                //Debug.Log("nothing to do but drink a cup of tea; metaphorically of course... I am just a piece of grass after all!");
+                break;
             }
-
-            if (is_deciding_)
+            case DECISION.GROW:
             {
-                yield return new WaitUntil(() => is_deciding_ == false);
-                continue;
+                Grow();
+                break;
             }
-
-            switch (current_decision_)
+            case DECISION.SPREAD:
             {
-                case DECISION.IDLE:
-                {
-                    //Debug.Log("nothing to do but drink a cup of tea; metaphorically of course... I am just a piece of grass after all!");
-                    break;
-                }
-                case DECISION.GROW:
-                {
-                    Grow();
-                    break;
-                }
-                case DECISION.SPREAD:
-                {
-                    Spread();
-                    break;
-                }
-                case DECISION.WITHER:
-                {
-                    Wither();
-                    break;
-                }
-                default:
-                {
-                    Debug.LogError("Even an vegetation needs to act, why didn't I? " + gameObject.name);
-                    break;
-                }
+                Spread();
+                break;
             }
-
-            yield return new WaitForSeconds(act_interval_);
+            case DECISION.WITHER:
+            {
+                Wither();
+                break;
+            }
+            default:
+            {
+                Debug.LogError("Even an vegetation needs to act, why didn't I? " + gameObject.name);
+                break;
+            }
         }
+        next_act_ = Time.time + act_interval_;
     }
 
     void Grow()
@@ -260,7 +208,6 @@ public class GroundTile : MonoBehaviour
             is_mature_timer_ = Time.time + max_mature_time_;
             return;
         }
-        
         health_++;
     }
 
@@ -315,5 +262,15 @@ public class GroundTile : MonoBehaviour
         }
         health_--;
         return true;
+    }
+    
+    void SelfSeed()
+    {
+        float die_roll = Random.Range(0.0f, 1.0f);
+        Debug.Log(gameObject.name + " attempted selfseeding  " + die_roll + " vs " + chances_of_self_seeding_);
+        if (die_roll < chances_of_self_seeding_)
+        {
+            PlantSeed();
+        }
     }
 }

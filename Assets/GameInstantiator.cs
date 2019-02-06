@@ -22,6 +22,11 @@ public class GameInstantiator : MonoBehaviour
 
     private GameObject field_;
     private GameObject herd_;
+
+    private List<GroundTile> active_tiles_ = new List<GroundTile>();
+    private List<Sheep> active_sheep_ = new List<Sheep>();
+    private List<Wolf> active_wolves_ = new List<Wolf>();
+    
     
     private void Awake()
     {
@@ -30,14 +35,65 @@ public class GameInstantiator : MonoBehaviour
 
     void Start()
     {
+        Sheep.onSheepAddedToGame += AddSheepToActiveAgentsList;
+        Sheep.onSheepDeletedFromGame += RemoveSheepFromActiveAgentsList;        
         SpawnSheep();
         // TODO: implement SpawnWolves()
+
+        Wolf.onWolfAddedToGame += AddWolfToActiveAgentsList;
+        Wolf.onWolfDeletedFromGame += RemoveWolfFromActiveAgentsList;
+        SpawnWolves();
     }
 
     // Update is called once per frame
     void Update()
     {
+        RunGrassBehaviour();
+        RunSheepBehaviour();
+    }
+
+    
+    void RunGrassBehaviour()
+    {
+        foreach (var tile in active_tiles_)
+        {
+            tile.Tick();
+        }
+    }
+
+    void RunSheepBehaviour()
+    {
+        List<Sheep> sheep_to_run_behaviour_on = new List<Sheep>(active_sheep_);
         
+        foreach (var sheep in sheep_to_run_behaviour_on)
+        {
+            sheep.Tick();
+        }   
+    }
+
+    void AddSheepToActiveAgentsList(Sheep sheep)
+    {
+        active_sheep_.Add(sheep);
+    }
+
+    void RemoveSheepFromActiveAgentsList(Sheep sheep)
+    {
+        active_sheep_.Remove(sheep);
+    }
+    
+    void RunWolfBehaviour()
+    {
+        
+    }
+    
+    void AddWolfToActiveAgentsList(Wolf wolf)
+    {
+        active_wolves_.Add(wolf);
+    }
+
+    void RemoveWolfFromActiveAgentsList(Wolf wolf)
+    {
+        active_wolves_.Remove(wolf);
     }
 
     void CreateField()
@@ -50,11 +106,13 @@ public class GameInstantiator : MonoBehaviour
             for (int j = 0; j < grid_height_; j++)
             {
                 Vector3 current_grid_pos = new Vector3(i, j, 0);
-                GameObject temp_tile = Instantiate(tile_prefab_, current_grid_pos, Quaternion.identity, field_.transform);
+                GameObject temp_tile_obj = Instantiate(tile_prefab_, current_grid_pos, Quaternion.identity, field_.transform);
+                GroundTile temp_tile_ref = temp_tile_obj.GetComponent<GroundTile>();
                 
-                // TODO: Investigate why it isn't "isTileSeeded < ration_of_grass_to_dirt_"
                 int isTileSeeded = Random.Range(0, 100);
-                if(isTileSeeded < ratio_of_grass_to_dirt_) temp_tile.GetComponent<GroundTile>().PlantSeed();
+                if(isTileSeeded < ratio_of_grass_to_dirt_) temp_tile_ref.PlantSeed();
+                
+                    active_tiles_.Add(temp_tile_ref);
             }
         }
         
@@ -77,12 +135,14 @@ public class GameInstantiator : MonoBehaviour
                 GameObject tempRef = Instantiate(sheep_prefab_, new Vector3(spawn_pos.x, spawn_pos.y, 0), Quaternion.identity, herd_.transform);
                 tempRef.GetComponent<Sheep>().BirthSheep(spawn_pos);
                 spawned_sheep++;
+                
             }
         }
-        
         Sheep.SetSheepPrefab(sheep_prefab_);
+    }
 
-        
+    void SpawnWolves()
+    {
         
     }
 }

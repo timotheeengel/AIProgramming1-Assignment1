@@ -7,10 +7,18 @@ using UnityEngine;
 
 public class Sheep : MonoBehaviour
 {
-    private static GameObject sheep_prefab_ = null;
     public static Dictionary<Vector2, Sheep> sheep_db_ = new Dictionary<Vector2, Sheep>();
+
+    public delegate void OnSheepAddedToGame(Sheep sheep);
+    public static event OnSheepAddedToGame onSheepAddedToGame;
+
+    public delegate void OnSheepDeletedFromGame(Sheep sheep);
+    public static event OnSheepDeletedFromGame onSheepDeletedFromGame;
+    
+    private static GameObject sheep_prefab_ = null;
     private static List<GameObject> sheep_object_pool_ = new List<GameObject>();
     private static Vector2 object_pool_pos_ = new Vector2(-100, -100);
+
 
     
     // TODO: Use life states (e.g. alive, dead, decomposing, etc...) for attracting wolves and plant seeds upon decomposition
@@ -48,20 +56,20 @@ public class Sheep : MonoBehaviour
     
     // note: sense_inverval_ needs to be greater than act_interval_ or sheep will try to move to the same spaces.
     // Could this be a limitation of dictionaries in comparison to hashtables? Throwing an error when the same key tries to be added twice?
-    private float sense_interval_ = 0.1f;
-    private float decide_interval_ = 0.2f;
-    private float act_interval_ = 0.3f;
+    private double sense_interval_ = 0.1f;
+    private double decide_interval_ = 0.2f;
+    private double act_interval_ = 0.3f;
 
+    private double next_sense_;
+    private double next_decide_;
+    private double next_act_;
+    
     private bool is_alive_ = true;
     private float health_ = 0;
     private float health_decrease_per_act_tick_ = 0.5f;
     private float minimum_starting_health_ = 50;
     private float maximum_starting_health_ = 80;
     private float max_health_ = 100;
-    
-    // note: locks to avoid S-D-A running while data is being overwritten
-    private bool is_sensing_ = false;
-    private bool is_deciding_ = false;
     
     public void BirthSheep(Vector2 position)
     {
@@ -73,89 +81,86 @@ public class Sheep : MonoBehaviour
         gameObject.SetActive(health_ >= minimum_starting_health_);
         is_alive_ = true;
         
-        StartCoroutine(Sense());
-        StartCoroutine(Decide());
-        StartCoroutine(Act());
+        onSheepAddedToGame(this);
+
+        next_sense_ = Time.time + sense_interval_;
+        next_decide_ = Time.time + decide_interval_;
+        next_act_ = Time.time + act_interval_;
+        
+    }
+
+    public void Tick()
+    {
+        Sense();
+        Decide();
+        Act();
     }
     
-    IEnumerator Sense ()
+    void Sense ()
     {
-        while(is_alive_)
-        {
-            is_sensing_ = true;
+        if (Time.time < next_sense_ || is_alive_ == false) return;
 
-            AreThereWolvesNearby();
-            LookForMoveOptions();
-            LookForGrassOptions();
-
-            is_sensing_ = false;
-
-            yield return new WaitForSeconds(sense_interval_);
-        }
+        AreThereWolvesNearby();
+        LookForMoveOptions();
+        LookForGrassOptions();
+        next_sense_ = Time.time + sense_interval_;
     }
 
-    IEnumerator Decide()
+    void Decide()
     {
-        while(is_alive_)
-        {
-            if(is_sensing_) yield return new WaitUntil(() => is_sensing_ == false);
+        if (Time.time < next_decide_ || !is_alive_) return;
 
-            if (AreThereWolvesNearby())
-            {
-                current_decision_ = DECISION.FLEE;
-            }
-            else if (health_ >= max_health_)
-            {
-                current_decision_ = DECISION.REPRODUCE;
-            }
-            else if (DoesCurrentTileHaveGrass())
-            {
-                current_decision_ = DECISION.GRAZE;
-            }
-            else
-            {
-                current_decision_ = DECISION.WANDER;
-            }
-            yield return new WaitForSeconds(decide_interval_);
+        if (AreThereWolvesNearby())
+        {
+            current_decision_ = DECISION.FLEE;
         }
+        else if (health_ >= max_health_)
+        {
+            current_decision_ = DECISION.REPRODUCE;
+        }
+        else if (DoesCurrentTileHaveGrass())
+        {
+            current_decision_ = DECISION.GRAZE;
+        }
+        else
+        {
+            current_decision_ = DECISION.WANDER;
+        }
+        next_decide_ = Time.time + decide_interval_;
     }
 
-    IEnumerator Act()
+    void Act()
     {
-        while (is_alive_)
+        if (Time.time < next_act_ || !is_alive_) return;
+        switch (current_decision_)
         {
-            if(is_deciding_) yield return new WaitUntil(() => is_deciding_ == false);
-            
-            switch (current_decision_)
+            case DECISION.GRAZE:
             {
-                case DECISION.GRAZE:
-                {
-                    Graze();
-                    break;
-                }
-                case DECISION.WANDER:
-                case DECISION.FLEE:
-                {
-                    Move();
-                    break;
-                }
-                case DECISION.REPRODUCE:
-                {
-                    Reproduce();
-                    break;
-                }
-                default:
-                {
-                    Debug.LogError("Uh-oh, what happened there?! " + pos_);
-                    break;
-                }
+                Graze();
+                break;
             }
-
-            health_ -= health_decrease_per_act_tick_;
-            if (health_ <= 0) Died();
-            
-            yield return new WaitForSeconds(act_interval_);
+            case DECISION.WANDER:
+            case DECISION.FLEE:
+            {
+                Move();
+                break;
+            }
+            case DECISION.REPRODUCE:
+            {
+                Reproduce();
+                break;
+            }
+            default:
+            {
+                Debug.LogError("Uh-oh, what happened there?! " + pos_);
+                break;
+            }
         }
+        health_ -= health_decrease_per_act_tick_;
+        next_act_ = Time.time + act_interval_;
+        if (health_ <= 0) Died();
+
+
     }
 
     bool AreThereWolvesNearby()
@@ -274,7 +279,7 @@ public class Sheep : MonoBehaviour
 
         sheep_db_.Remove(pos_);
         sheep_db_.Add(move_pos, this);
-        Debug.Log("I just moved from " + pos_ + " to " + move_pos);
+        if(pos_.x - move_pos.x > 1 ) Debug.Log("I just moved from " + pos_ + " to " + move_pos);
 
         pos_ = move_pos;
         transform.position = pos_;
@@ -304,6 +309,8 @@ public class Sheep : MonoBehaviour
             {
                 moving_options_.Remove(spawn_pos);
             }
+
+            if (moving_options_.Count <= 0) return;
             spawn_pos = moving_options_[Random.Range(0, moving_options_.Count)];
             count++;
         }
@@ -336,6 +343,7 @@ public class Sheep : MonoBehaviour
         {
             GroundTile.TileDictionary[pos_].PlantSeed();            
         }
+        onSheepDeletedFromGame(this);
         MoveSheepToObjectPool();
     }
 
