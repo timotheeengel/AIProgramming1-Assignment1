@@ -42,7 +42,6 @@ public class Sheep : MonoBehaviour
     }
     
     private Vector2 pos_;
-    private SpriteRenderer sprite_renderer_;
 
     private int vision_distance_ = 1; // note: a unit is one square on the grid
     private List<Vector2> moving_options_ = new List<Vector2>();
@@ -65,11 +64,12 @@ public class Sheep : MonoBehaviour
     private double next_act_;
     
     private bool is_alive_ = true;
-    private float health_ = 0;
+    private float health_ = 0.0f;
     private float health_decrease_per_act_tick_ = 0.5f;
-    private float minimum_starting_health_ = 50;
-    private float maximum_starting_health_ = 80;
-    private float max_health_ = 100;
+    private float minimum_starting_health_ = 50.0f;
+    private float maximum_starting_health_ = 80.0f;
+    private float max_health_ = 100.0f;
+    private float reproduction_cost_ = 10.0f;
     
     public void BirthSheep(Vector2 position)
     {
@@ -98,7 +98,7 @@ public class Sheep : MonoBehaviour
     
     void Sense ()
     {
-        if (Time.time < next_sense_ || is_alive_ == false) return;
+        if (Time.time < next_sense_ || health_ < 0) return;
 
         AreThereWolvesNearby();
         LookForMoveOptions();
@@ -108,7 +108,7 @@ public class Sheep : MonoBehaviour
 
     void Decide()
     {
-        if (Time.time < next_decide_ || !is_alive_) return;
+        if (Time.time < next_decide_ || health_ < 0) return;
 
         if (AreThereWolvesNearby())
         {
@@ -131,7 +131,7 @@ public class Sheep : MonoBehaviour
 
     void Act()
     {
-        if (Time.time < next_act_ || !is_alive_) return;
+        if (Time.time < next_act_ || health_ < 0) return;
         switch (current_decision_)
         {
             case DECISION.GRAZE:
@@ -159,8 +159,6 @@ public class Sheep : MonoBehaviour
         health_ -= health_decrease_per_act_tick_;
         next_act_ = Time.time + act_interval_;
         if (health_ <= 0) Died();
-
-
     }
 
     bool AreThereWolvesNearby()
@@ -168,9 +166,9 @@ public class Sheep : MonoBehaviour
         nearby_wolf_pos_ = -Vector2.one;
         wolves_nearby_ = false;
         
-        for (int i = -1; i <= vision_distance_; i++)
+        for (int i = -vision_distance_; i <= vision_distance_; i++)
         {
-            for (int j = -1; j <= vision_distance_; j++)
+            for (int j = -vision_distance_; j <= vision_distance_; j++)
             {
                 Vector2 adjacent_tile_pos = pos_ + new Vector2(i, j);
 
@@ -184,7 +182,6 @@ public class Sheep : MonoBehaviour
                 }
             }
         }
-
         // TODO: if true, Increase sensing and acting speed for a short while?
         return wolves_nearby_;
     }
@@ -262,7 +259,7 @@ public class Sheep : MonoBehaviour
         
         int count = 0;
         Vector2 move_pos = moving_options_[Random.Range(0, moving_options_.Count)];
-        while (moving_options_.Count > 0 && sheep_db_.TryGetValue(move_pos, out Sheep sheepRef) && count < 3)
+        while (moving_options_.Count > 0 && count < 3) // Careful hardcoded number
         {
             if (GroundTile.TileDictionary.ContainsKey(move_pos) == false || sheep_db_.ContainsKey(move_pos))
             {
@@ -283,7 +280,6 @@ public class Sheep : MonoBehaviour
 
         pos_ = move_pos;
         transform.position = pos_;
-
     }
 
     void Graze()
@@ -319,7 +315,7 @@ public class Sheep : MonoBehaviour
         if (sheep_db_.ContainsKey(spawn_pos)) return;
         
         // TODO: implement birthing cost to avoid rabbit like reproduction rates
-        health_ -= 10;
+        health_ -= reproduction_cost_;
         
         GameObject tempRef = null;
         if (sheep_object_pool_.Count > 0)
@@ -355,12 +351,10 @@ public class Sheep : MonoBehaviour
         gameObject.SetActive(false);
     }
 
-    public bool Maul(float damage)
+    public float Maul()
     {
-        health_ -= damage;
-        if(health_ <= 0) Died();
-
-        return health_ > 0;
+        Died();
+        return health_;
     }
 
     public static void SetSheepPrefab(GameObject prefab)
