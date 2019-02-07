@@ -161,9 +161,9 @@ public class Wolf : MonoBehaviour
     {
         moving_options_.Clear();
 
-        for (int i = -1; i <= 1; i++)
+        for (int i = -vision_distance_; i <= vision_distance_; i++)
         {
-            for (int j = -1; j <= 1; j++)
+            for (int j = -vision_distance_; j <= vision_distance_; j++)
             {
                 Vector2 adjacent_tile_pos = pos_ + new Vector2(i, j);
 
@@ -187,11 +187,14 @@ public class Wolf : MonoBehaviour
 
     void HuntTargetDown()
     {
-        if (target_sheep_ != null && IsTheTargetOnTheSameField())
+        if (target_sheep_ != null &&  Sheep.sheep_db_.TryGetValue(nearby_sheep_pos_, out target_sheep_) && IsTheTargetOnTheSameField())
         {
-            Sheep.sheep_db_.TryGetValue(nearby_sheep_pos_, out target_sheep_);
             TakeABite();
             return;
+        }
+        else
+        {
+            target_sheep_ = null;
         }
         
         if (target_sheep_ == null)
@@ -246,24 +249,38 @@ public class Wolf : MonoBehaviour
         if (moving_options_.Count <= 0) return;
         
         int count = 0;
-        Vector2 move_pos = moving_options_[Random.Range(0, moving_options_.Count)];
+        Vector2 move_pos = -Vector2.one;
         while (moving_options_.Count > 0 && count < 3) // Careful hardcoded number
         {
-            if (GroundTile.TileDictionary.ContainsKey(move_pos) == false || wolf_db_.ContainsKey(move_pos))
+            move_pos = moving_options_[Random.Range(0, moving_options_.Count)];
+
+            Vector2 adjusted_move_pos = move_pos;
+            if (Mathf.Abs(adjusted_move_pos.x) > Mathf.Abs(adjusted_move_pos.y))
+            {
+                if (adjusted_move_pos.x > 0) adjusted_move_pos = pos_ + Vector2.right;
+                else adjusted_move_pos = pos_ + Vector2.left;
+            }
+            else
+            {
+                if (adjusted_move_pos.y > 0) adjusted_move_pos = pos_ + Vector2.up;
+                else adjusted_move_pos = pos_ + Vector2.down;
+            }
+            
+            if (GroundTile.TileDictionary.ContainsKey(adjusted_move_pos) == false || wolf_db_.ContainsKey(adjusted_move_pos))
             {
                 moving_options_.Remove(move_pos);
             }
 
             if (moving_options_.Count <= 0) return;
-            move_pos = moving_options_[Random.Range(0, moving_options_.Count)];
             count++;
         }
 
 //        move_pos += pos_;
                
-        if (moving_options_.Count <= 0) return;
-        if(wolf_db_.ContainsKey(move_pos)) return;
+        if (moving_options_.Count <= 0 || move_pos == -Vector2.one) return;
+        
         if (GroundTile.TileDictionary.ContainsKey(move_pos) == false) return;
+        if(wolf_db_.ContainsKey(move_pos)) return;
         
         wolf_db_.Remove(pos_);
         wolf_db_.Add(move_pos, this);
