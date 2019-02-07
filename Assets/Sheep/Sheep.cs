@@ -38,6 +38,7 @@ public class Sheep : MonoBehaviour
         GRAZE,
         REPRODUCE,
         WANDER,
+        GO_TO_GRASS,
         COUNT
     }
     
@@ -123,6 +124,10 @@ public class Sheep : MonoBehaviour
         {
             current_decision_ = DECISION.GRAZE;
         }
+        else if(grazing_options_.Count > 0)
+        {
+            current_decision_ = DECISION.GO_TO_GRASS;
+        }
         else
         {
             current_decision_ = DECISION.WANDER;
@@ -143,6 +148,11 @@ public class Sheep : MonoBehaviour
             case DECISION.FLEE:
             {
                 FleeFromWolf();
+                break;
+            }
+            case DECISION.GO_TO_GRASS:
+            {
+                MoveToGrass();
                 break;
             }
             case DECISION.WANDER:
@@ -313,12 +323,42 @@ public class Sheep : MonoBehaviour
         transform.position = pos_;
     }
 
+    void MoveToGrass()
+    {
+        if (grazing_options_.Count <= 0) return;
+        
+        int count = 0;
+        Vector2 move_pos = grazing_options_[Random.Range(0, grazing_options_.Count)];
+        while (grazing_options_.Count > 0 && count < 3) // Careful hardcoded number
+        {
+            if (GroundTile.TileDictionary.ContainsKey(move_pos) == false || sheep_db_.ContainsKey(move_pos))
+            {
+                grazing_options_.Remove(move_pos);
+            }
+
+            if (grazing_options_.Count <= 0) return;
+            move_pos = grazing_options_[Random.Range(0, grazing_options_.Count)];
+            count++;
+        }
+               
+        if (grazing_options_.Count <= 0) return;
+        if(sheep_db_.ContainsKey(move_pos)) return;
+
+        sheep_db_.Remove(pos_);
+        sheep_db_.Add(move_pos, this);
+        if(pos_.x - move_pos.x > 1 ) Debug.Log("I just moved from " + pos_ + " to " + move_pos);
+
+        pos_ = move_pos;
+        transform.position = pos_; 
+    }
+    
     void Graze()
     {
         if (GroundTile.TileDictionary[pos_].ChewGrass() == false)
         {
             // note: this action results in a decision, because otherwise the sheep would eat dirt.
-            current_decision_ = DECISION.WANDER;
+            
+            current_decision_ = DECISION.GO_TO_GRASS;
         }
 
         health_++;
