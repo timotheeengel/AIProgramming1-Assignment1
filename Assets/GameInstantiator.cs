@@ -1,6 +1,10 @@
 ﻿using System.Collections;
 using System.Collections.Generic;
+using System.Numerics;
 using UnityEngine;
+using Quaternion = UnityEngine.Quaternion;
+using Vector2 = UnityEngine.Vector2;
+using Vector3 = UnityEngine.Vector3;
 
 public class GameInstantiator : MonoBehaviour
 {
@@ -15,13 +19,14 @@ public class GameInstantiator : MonoBehaviour
     private int grid_width_ = 10;
     private int grid_height_ = 10;
 
-    private int amount_of_sheep_ = 1;
-    private int amount_of_wolves_ = 0;
+    private int amount_of_sheep_ = 10;
+    private int amount_of_wolves_ = 1;
 
     private int ratio_of_grass_to_dirt_ = 20; // percent of the field covered in grass
 
     private GameObject field_;
     private GameObject herd_;
+    private GameObject pack_;
 
     private List<GroundTile> active_tiles_ = new List<GroundTile>();
     private List<Sheep> active_sheep_ = new List<Sheep>();
@@ -50,6 +55,7 @@ public class GameInstantiator : MonoBehaviour
     {
         RunGrassBehaviour();
         RunSheepBehaviour();
+        RunWolfBehaviour();
     }
 
     
@@ -83,7 +89,12 @@ public class GameInstantiator : MonoBehaviour
     
     void RunWolfBehaviour()
     {
-        
+        List<Wolf> wolves_to_run_behaviour_on = new List<Wolf>(active_wolves_);
+
+        foreach (var wolf in wolves_to_run_behaviour_on)
+        {
+            wolf.Tick();
+        }
     }
     
     void AddWolfToActiveAgentsList(Wolf wolf)
@@ -126,16 +137,15 @@ public class GameInstantiator : MonoBehaviour
         herd_.transform.position = Vector3.zero;
      
         int spawned_sheep = 0;
-        
+        Vector2 spawn_pos;
         while (spawned_sheep < amount_of_sheep_)
         {
-            Vector2 spawn_pos = new Vector2(Random.Range(0, grid_width_), Random.Range(0, grid_height_));
+            spawn_pos = new Vector2(Random.Range(0, grid_width_), Random.Range(0, grid_height_));
             if (GroundTile.TileDictionary.ContainsKey(spawn_pos) && !Sheep.sheep_db_.ContainsKey(spawn_pos))
             {
                 GameObject tempRef = Instantiate(sheep_prefab_, new Vector3(spawn_pos.x, spawn_pos.y, 0), Quaternion.identity, herd_.transform);
                 tempRef.GetComponent<Sheep>().BirthSheep(spawn_pos);
                 spawned_sheep++;
-                
             }
         }
         Sheep.SetSheepPrefab(sheep_prefab_);
@@ -143,6 +153,25 @@ public class GameInstantiator : MonoBehaviour
 
     void SpawnWolves()
     {
+        pack_ = new GameObject("Pack");
+        pack_.transform.position = Vector3.zero;
+
+        int spawned_wolves = 0;
+
+        Vector2 spawn_pos;
         
+        while (spawned_wolves < amount_of_wolves_)
+        {
+            spawn_pos = new Vector2(Random.Range(0, grid_width_), Random.Range(0, grid_height_));
+            if (GroundTile.TileDictionary.ContainsKey(spawn_pos) && !Sheep.sheep_db_.ContainsKey(spawn_pos) && !Wolf.wolf_db_.ContainsKey(spawn_pos))
+            {
+                GameObject tempRef = Instantiate(wolf_prefab_, new Vector3(spawn_pos.x, spawn_pos.y, 0), Quaternion.identity, pack_.transform);
+                tempRef.GetComponent<Wolf>().BirthWolf(spawn_pos);
+                spawned_wolves++;
+            }
+        }
+        
+        Wolf.SetWolfPrefab(wolf_prefab_);
+        pack_.transform.Translate(-Vector3.forward);
     }
 }

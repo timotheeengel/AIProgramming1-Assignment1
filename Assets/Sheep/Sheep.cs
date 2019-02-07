@@ -53,6 +53,7 @@ public class Sheep : MonoBehaviour
     private DECISION current_decision_ = DECISION.WANDER;
     
     
+    
     // note: sense_inverval_ needs to be greater than act_interval_ or sheep will try to move to the same spaces.
     // Could this be a limitation of dictionaries in comparison to hashtables? Throwing an error when the same key tries to be added twice?
     private double sense_interval_ = 0.1f;

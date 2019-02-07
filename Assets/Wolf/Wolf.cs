@@ -1,7 +1,9 @@
-﻿using System.Collections;
+﻿using System;
+using System.Collections;
 using System.Collections.Generic;
 using UnityEditorInternal.VR;
 using UnityEngine;
+using Random = UnityEngine.Random;
 
 public class Wolf : MonoBehaviour
 {
@@ -22,17 +24,19 @@ public class Wolf : MonoBehaviour
 
     private int vision_distance_ = 2;
     private List<Vector2> moving_options_ = new List<Vector2>();
-    private List<Vector2> grazing_options_ = new List<Vector2>();
-
+    private List<Sheep> nearby_sheep_list_ = new List<Sheep>();
+    
     private Vector2 nearby_sheep_pos_ = Vector2.zero;
     private bool sheep_nearby_ = false;
+    
+    private Sheep target_sheep_;
     private bool sheep_on_same_tile_ = false;
 
     private DECISION current_decision_ = DECISION.WANDER;
     
-    private double sense_interval_ = 0.1f;
-    private double decide_interval_ = 0.05f;
-    private double act_interval_ = 0.5f;
+    private double sense_interval_ = 0.08f;
+    private double decide_interval_ = 0.1f;
+    private double act_interval_ = 0.15f;
 
     private double next_sense_;
     private double next_decide_;
@@ -91,25 +95,27 @@ public class Wolf : MonoBehaviour
 
     void Decide()
     {
-        if (Time.time < next_sense_ || is_alive_ == false) return;
+        if (Time.time < next_decide_ || is_alive_ == false) return;
 
-        if (sheep_on_same_tile_)
+//        if (sheep_on_same_tile_)
+//        {
+//            current_decision_ = DECISION.EAT;
+//        } 
+//        else 
+        if (health_ >= max_health_)
         {
-            current_decision_ = DECISION.EAT;
+            current_decision_ = DECISION.REPRODUCE;
+        }
+        else if(nearby_sheep_list_.Count <= 0)
+        {
+            current_decision_ = DECISION.WANDER;
         } 
         else if (sheep_nearby_)
         {
             current_decision_ = DECISION.HUNT;
         }
-        else if (health_ >= maximum_starting_health_)
-        {
-            current_decision_ = DECISION.REPRODUCE;
-        }
-        else
-        {
-            current_decision_ = DECISION.WANDER;
-        }
-        next_decide_ = Time.time + sense_interval_;
+
+        next_decide_ = Time.time + decide_interval_;
     }
 
     void Act()
@@ -117,14 +123,15 @@ public class Wolf : MonoBehaviour
         if (Time.time < next_act_ || !is_alive_) return;
         switch (current_decision_)
         {
-            case DECISION.EAT:
-            {
-                TakeABite();
-                break;
-            }
+//            case DECISION.EAT:
+//            {
+//                TakeABite();
+//                break;
+//            }
             case DECISION.HUNT:
             {
                 LookForSheep();
+                HuntTargetDown();
                 break;
             }
             case DECISION.REPRODUCE:
@@ -134,6 +141,7 @@ public class Wolf : MonoBehaviour
             }
             case DECISION.WANDER:
             {
+                LookForSheep();
                 Wander();
                 break;
             }
@@ -153,9 +161,9 @@ public class Wolf : MonoBehaviour
     {
         moving_options_.Clear();
 
-        for (int i = -1; i <= vision_distance_; i++)
+        for (int i = -1; i <= 1; i++)
         {
-            for (int j = -1; j <= vision_distance_; j++)
+            for (int j = -1; j <= 1; j++)
             {
                 Vector2 adjacent_tile_pos = pos_ + new Vector2(i, j);
 
@@ -169,14 +177,72 @@ public class Wolf : MonoBehaviour
 
     bool IsTheTargetOnTheSameField()
     {
+        if (nearby_sheep_pos_ == pos_ && Sheep.sheep_db_.ContainsKey(nearby_sheep_pos_))
+        {
+            return true;
+        }
 
-        return true;
+        return false;
     }
 
+    void HuntTargetDown()
+    {
+        if (target_sheep_ != null && IsTheTargetOnTheSameField())
+        {
+            Sheep.sheep_db_.TryGetValue(nearby_sheep_pos_, out target_sheep_);
+            TakeABite();
+            return;
+        }
+        
+        if (target_sheep_ == null)
+        {
+            foreach (var target in nearby_sheep_list_)
+            {
+                nearby_sheep_pos_ = target.transform.position;
+                if (IsTheTargetOnTheSameField())
+                {
+                    Sheep.sheep_db_.TryGetValue(nearby_sheep_pos_, out target_sheep_);
+                    TakeABite();
+                    return;
+                }
+            }
+        
+            if (nearby_sheep_list_.Count > 0 && target_sheep_ == null)
+            {
+                nearby_sheep_pos_ = nearby_sheep_list_[Random.Range(0, nearby_sheep_list_.Count)].transform.position;
+                Sheep.sheep_db_.TryGetValue(nearby_sheep_pos_, out target_sheep_);
+            }     
+        }
+
+        if (target_sheep_ == null) return;
+
+        nearby_sheep_pos_ = target_sheep_.transform.position;
+        Vector2 hunt_dir = nearby_sheep_pos_ - pos_;
+        Vector2 move_pos;
+        if (Mathf.Abs(hunt_dir.x) > Mathf.Abs(hunt_dir.y))
+        {
+            if (hunt_dir.x > 0) move_pos = pos_ + Vector2.right;
+            else move_pos = pos_ + Vector2.left;
+
+        }
+        else
+        {
+            if (hunt_dir.y > 0) move_pos = pos_ + Vector2.up;
+            else move_pos = pos_ + Vector2.down;
+        }
+
+        if(wolf_db_.ContainsKey(move_pos)) return;
+        if (GroundTile.TileDictionary.ContainsKey(move_pos) == false) return;
+
+        wolf_db_.Remove(pos_);
+        wolf_db_.Add(move_pos, this);
+        pos_ = move_pos;
+        transform.position = pos_;
+        
+    }
+    
     void Wander()
     {
-        if (sheep_on_same_tile_) return;
-        
         if (moving_options_.Count <= 0) return;
         
         int count = 0;
@@ -192,13 +258,15 @@ public class Wolf : MonoBehaviour
             move_pos = moving_options_[Random.Range(0, moving_options_.Count)];
             count++;
         }
+
+//        move_pos += pos_;
                
         if (moving_options_.Count <= 0) return;
         if(wolf_db_.ContainsKey(move_pos)) return;
-
+        if (GroundTile.TileDictionary.ContainsKey(move_pos) == false) return;
+        
         wolf_db_.Remove(pos_);
         wolf_db_.Add(move_pos, this);
-        if(pos_.x - move_pos.x > 1 ) Debug.Log("I just moved from " + pos_ + " to " + move_pos);
 
         pos_ = move_pos;
         transform.position = pos_;
@@ -206,31 +274,30 @@ public class Wolf : MonoBehaviour
 
     void LookForSheep()
     {
-        nearby_sheep_pos_ = -Vector2.one;
-        sheep_nearby_ = false;
+        if (target_sheep_ != null)
+        {
+            nearby_sheep_pos_ = target_sheep_.transform.position;
+            sheep_nearby_ = Sheep.sheep_db_.ContainsKey(nearby_sheep_pos_);
+            if (sheep_nearby_) return;
+        }
         
-        List<Vector2> nearby_sheep_list = new List<Vector2>();
+        sheep_nearby_ = false;
+        nearby_sheep_list_.Clear();
+        
         for (int i = -vision_distance_; i <= vision_distance_; i++)
         {
             for (int j = -vision_distance_; j <= vision_distance_; j++)
             {
                 Vector2 adjacent_tile_pos = pos_ + new Vector2(i, j);
 
-                if (GroundTile.TileDictionary.TryGetValue(adjacent_tile_pos, out GroundTile adjacent_tile) ==
-                    false) continue;
-                if (Sheep.sheep_db_.ContainsKey(adjacent_tile_pos))
+                if (GroundTile.TileDictionary.ContainsKey(adjacent_tile_pos) == false) continue;
+                if (Sheep.sheep_db_.TryGetValue(adjacent_tile_pos, out Sheep nearby_sheep))
                 {
-                    nearby_sheep_list.Add(adjacent_tile_pos);
+                    nearby_sheep_list_.Add(nearby_sheep);
                     sheep_nearby_ = true;
-                    break;
                 }
             }
         }
-
-        if (nearby_sheep_list.Count > 0)
-        {
-            nearby_sheep_pos_ = nearby_sheep_list[Random.Range(0, nearby_sheep_list.Count)];
-        }   
     }
 
     void TakeABite()
@@ -238,13 +305,16 @@ public class Wolf : MonoBehaviour
         if(Sheep.sheep_db_.TryGetValue(pos_, out Sheep sheep_on_tile))
         {
             float sheep_tastiness = sheep_on_tile.Maul();
-            health_ = Random.Range(sheep_tastiness / 2, sheep_tastiness);
+            health_ += Random.Range(sheep_tastiness / 2, sheep_tastiness);
+            Debug.Log("hmmm, that was good " + sheep_tastiness);
         }
+        target_sheep_ = null;
+        sheep_nearby_ = false;
     }
 
     void Reproduce()
     {
-        if (moving_options_.Count <= 0) return;
+        if (moving_options_.Count <= 0 || health_ < 100) return;
         
         int count = 0;
         Vector2 spawn_pos = moving_options_[Random.Range(0, moving_options_.Count)];
@@ -264,7 +334,7 @@ public class Wolf : MonoBehaviour
         if (wolf_db_.ContainsKey(spawn_pos)) return;
         
         // TODO: implement birthing cost to avoid rabbit like reproduction rates
-        health_ -= 10;
+        health_ -= reproduction_cost_;
         
         GameObject tempRef = null;
         if (wolf_object_poll_.Count > 0)
@@ -277,6 +347,7 @@ public class Wolf : MonoBehaviour
             tempRef = Instantiate(wolf_prefab_, gameObject.transform.parent, true);
         }
 
+        Debug.Log("Birth Wolf, my health is " + health_);
         moving_options_.Remove(spawn_pos);
         tempRef.GetComponent<Wolf>().BirthWolf(spawn_pos);
     }
