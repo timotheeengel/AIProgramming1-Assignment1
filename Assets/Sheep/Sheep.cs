@@ -418,6 +418,7 @@ public class Sheep : MonoBehaviour
     {
         sheep_db_.Remove(pos_);
         pos_ = object_pool_pos_;
+        transform.position = pos_;
         sheep_object_pool_.Add(gameObject);
         gameObject.SetActive(false);
     }

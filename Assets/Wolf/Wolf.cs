@@ -6,7 +6,7 @@ using UnityEngine;
 using Random = UnityEngine.Random;
 
 public class Wolf : MonoBehaviour
-{
+{ 
     public static Dictionary<Vector2, Wolf> wolf_db_ = new Dictionary<Vector2, Wolf>();
     
     public delegate void OnWolfAddedToGame(Wolf wolf);
@@ -34,8 +34,8 @@ public class Wolf : MonoBehaviour
 
     private DECISION current_decision_ = DECISION.WANDER;
     
-    private double sense_interval_ = 0.08f;
-    private double decide_interval_ = 0.1f;
+    private double sense_interval_ = 0.05f;
+    private double decide_interval_ = 0.08f;
     private double act_interval_ = 0.15f;
 
     private double next_sense_;
@@ -44,7 +44,7 @@ public class Wolf : MonoBehaviour
     
     private bool is_alive_ = true;
     private float health_ = 0.0f;
-    private float health_decrease_per_act_tick_ = 1.5f;
+    private float health_decrease_per_act_tick_ = 1f;
     private float minimum_starting_health_ = 30.0f;
     private float maximum_starting_health_ = 50.0f;
     private float max_health_ = 100.0f;
@@ -130,7 +130,6 @@ public class Wolf : MonoBehaviour
 //            }
             case DECISION.HUNT:
             {
-                LookForSheep();
                 HuntTargetDown();
                 break;
             }
@@ -141,7 +140,6 @@ public class Wolf : MonoBehaviour
             }
             case DECISION.WANDER:
             {
-                LookForSheep();
                 Wander();
                 break;
             }
@@ -167,6 +165,7 @@ public class Wolf : MonoBehaviour
             {
                 Vector2 adjacent_tile_pos = pos_ + new Vector2(i, j);
 
+                if (adjacent_tile_pos == pos_) continue;
                 if (GroundTile.TileDictionary.ContainsKey(adjacent_tile_pos) == false) continue;
                 if (wolf_db_.ContainsKey(adjacent_tile_pos)) continue;
 
@@ -224,7 +223,6 @@ public class Wolf : MonoBehaviour
         {
             if (hunt_dir.x > 0) move_pos = pos_ + Vector2.right;
             else move_pos = pos_ + Vector2.left;
-
         }
         else
         {
@@ -251,7 +249,8 @@ public class Wolf : MonoBehaviour
         List<Vector2> possible_moves = new List<Vector2>();
         for(int i = 0; i < moving_options_.Count; i++)
         {
-            move_pos = moving_options_[i];
+            // note: that's the movement direction!
+            move_pos = moving_options_[i] - pos_;
 
             Vector2 adjusted_move_pos;
             if (Mathf.Abs(move_pos.x) > Mathf.Abs(move_pos.y))
@@ -269,14 +268,12 @@ public class Wolf : MonoBehaviour
             {
                 possible_moves.Add(adjusted_move_pos);
             }
-
-            if (moving_options_.Count <= 0) return;
         }
 
         
         if (possible_moves.Count <= 0) return;
         move_pos = possible_moves[Random.Range(0, possible_moves.Count)];
-        Debug.Log("I am currently at " + pos_ + " and will be moving to " + move_pos);
+//        Debug.Log("I am currently at " + pos_ + " and will be moving to " + move_pos);
         
         if (GroundTile.TileDictionary.ContainsKey(move_pos) == false) return;
         if(wolf_db_.ContainsKey(move_pos)) return;
@@ -332,21 +329,23 @@ public class Wolf : MonoBehaviour
     {
         if (moving_options_.Count <= 0 || health_ < 100) return;
         
+        List<Vector2> possible_spawn_pos = new List<Vector2>(moving_options_);
+        
         int count = 0;
-        Vector2 spawn_pos = moving_options_[Random.Range(0, moving_options_.Count)];
-        while (moving_options_.Count > 0 && count < 3)
+        Vector2 spawn_pos = possible_spawn_pos[Random.Range(0, possible_spawn_pos.Count)];
+        while (possible_spawn_pos.Count > 0 && count < 3)
         {
             if (GroundTile.TileDictionary.ContainsKey(spawn_pos) == false || wolf_db_.ContainsKey(spawn_pos))
             {
-                moving_options_.Remove(spawn_pos);
+                possible_spawn_pos.Remove(spawn_pos);
             }
 
-            if (moving_options_.Count <= 0) return;
-            spawn_pos = moving_options_[Random.Range(0, moving_options_.Count)];
+            if (possible_spawn_pos.Count <= 0) return;
+            spawn_pos = possible_spawn_pos[Random.Range(0, possible_spawn_pos.Count)];
             count++;
         }
         
-        if (moving_options_.Count <= 0) return;
+        if (possible_spawn_pos.Count <= 0) return;
         if (wolf_db_.ContainsKey(spawn_pos)) return;
         
         // TODO: implement birthing cost to avoid rabbit like reproduction rates
@@ -364,8 +363,10 @@ public class Wolf : MonoBehaviour
         }
 
 //        Debug.Log("Birth Wolf, my health is " + health_);
-        moving_options_.Remove(spawn_pos);
+        possible_spawn_pos.Remove(spawn_pos);
         tempRef.GetComponent<Wolf>().BirthWolf(spawn_pos);
+        
+//        Debug.Log("Look I made a baby at " + spawn_pos);
     }
 
     void Died()
@@ -384,6 +385,7 @@ public class Wolf : MonoBehaviour
     {
         wolf_db_.Remove(pos_);
         pos_ = object_pool_pos_;
+        transform.position = pos_;
         wolf_object_poll_.Add(gameObject);
         gameObject.SetActive(false);
     }

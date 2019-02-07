@@ -16,11 +16,11 @@ public class GameInstantiator : MonoBehaviour
     // https://docs.unity3d.com/ScriptReference/Hashtable.html
     // https://forum.unity.com/threads/solved-question-about-dictionary-any-vs-dictionary-containskey.589939/
     
-    private int grid_width_ = 18;
-    private int grid_height_ = 10;
+    private int grid_width_ = 36;
+    private int grid_height_ = 20;
 
-    private int amount_of_sheep_ = 20;
-    private int amount_of_wolves_ = 2;
+    private int amount_of_sheep_ = 80;
+    private int amount_of_wolves_ = 10;
 
     private int ratio_of_grass_to_dirt_ = 40; // percent of the field covered in grass
 
