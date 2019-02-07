@@ -306,7 +306,7 @@ public class Wolf : MonoBehaviour
         {
             float sheep_tastiness = sheep_on_tile.Maul();
             health_ += Random.Range(sheep_tastiness / 2, sheep_tastiness);
-            Debug.Log("hmmm, that was good " + sheep_tastiness);
+//            Debug.Log("hmmm, that was good " + sheep_tastiness);
         }
         target_sheep_ = null;
         sheep_nearby_ = false;
@@ -347,7 +347,7 @@ public class Wolf : MonoBehaviour
             tempRef = Instantiate(wolf_prefab_, gameObject.transform.parent, true);
         }
 
-        Debug.Log("Birth Wolf, my health is " + health_);
+//        Debug.Log("Birth Wolf, my health is " + health_);
         moving_options_.Remove(spawn_pos);
         tempRef.GetComponent<Wolf>().BirthWolf(spawn_pos);
     }

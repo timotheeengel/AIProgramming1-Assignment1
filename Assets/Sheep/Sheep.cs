@@ -140,8 +140,12 @@ public class Sheep : MonoBehaviour
                 Graze();
                 break;
             }
-            case DECISION.WANDER:
             case DECISION.FLEE:
+            {
+                FleeFromWolf();
+                break;
+            }
+            case DECISION.WANDER:
             {
                 Move();
                 break;
@@ -221,13 +225,8 @@ public class Sheep : MonoBehaviour
 
         if (wolves_nearby_)
         {
-            Vector2 flee_dir = pos_ - nearby_wolf_pos_;
-            Vector2 away_from_danger = pos_ + flee_dir.normalized;
-            if (GroundTile.TileDictionary.ContainsKey(away_from_danger))
-            {
-                moving_options_.Add(away_from_danger);
-                return;
-            }
+            FleeFromWolf();
+            return;
         }
         
         for (int i = -1; i <= vision_distance_; i++)
@@ -252,6 +251,37 @@ public class Sheep : MonoBehaviour
         {
             moving_options_.Add((pos_ - nearby_wolf_pos_) + pos_);
         }
+    }
+
+    void FleeFromWolf()
+    {
+        moving_options_.Clear();
+        
+        Vector2 flee_dir = pos_ - nearby_wolf_pos_;
+        Vector2 away_from_danger;
+
+        if (Mathf.Abs(flee_dir.x) > Mathf.Abs(flee_dir.y))
+        {
+            if (flee_dir.x > 0) away_from_danger = pos_ + Vector2.right;
+            else away_from_danger = pos_ + Vector2.left;
+        }
+        else
+        {
+            if (flee_dir.y > 0) away_from_danger = pos_ + Vector2.up;
+            else away_from_danger = pos_ + Vector2.down;
+        }
+
+        if (sheep_db_.ContainsKey(away_from_danger) || !GroundTile.TileDictionary.ContainsKey(away_from_danger))
+        {
+            away_from_danger = -away_from_danger;
+        }
+
+        if (sheep_db_.ContainsKey(away_from_danger) || !GroundTile.TileDictionary.ContainsKey(away_from_danger)) return;
+        
+        sheep_db_.Remove(pos_);
+        sheep_db_.Add(away_from_danger, this);
+        pos_ = away_from_danger;
+        transform.position = pos_;
     }
     
     void Move()
