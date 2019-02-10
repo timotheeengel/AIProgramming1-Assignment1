@@ -20,9 +20,9 @@ public class GameInstantiator : MonoBehaviour
     private int grid_height_ = 20;
 
     private int amount_of_sheep_ = 80;
-    private int amount_of_wolves_ = 10;
+    private int amount_of_wolves_ = 8;
 
-    private int ratio_of_grass_to_dirt_ = 40; // percent of the field covered in grass
+    private int ratio_of_grass_to_dirt_ = 30; // percent of the field covered in grass
 
     private GameObject field_;
     private GameObject herd_;
